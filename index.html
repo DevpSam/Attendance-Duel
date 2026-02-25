@@ -3,14 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance Duel - Saksham vs Toshani</title>
-    <!-- Tailwind CSS -->
+    <title>Toshani's Attendance Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & Babel CDNs -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background: linear-gradient(135deg, #fdfcfb 0%, #e2d1c3 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 24px;
+        }
+        .custom-shadow {
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+        }
         @keyframes bounce-short {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-5px); }
@@ -18,371 +31,152 @@
         .animate-bounce-short {
             animation: bounce-short 1s ease-in-out infinite;
         }
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        .animate-spin-custom {
-            animation: spin 1s linear infinite;
-        }
-        body {
-            background-color: #f8fafc;
-        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="text/babel" data-type="module">
+    <script type="text/babel">
         const { useState, useEffect } = React;
-
-        /**
-         * GITHUB PAGES SETUP:
-         * To make this work on your own website with Live Sync:
-         * 1. Go to console.firebase.google.com
-         * 2. Create a project and get your "Web Config" object.
-         * 3. Paste it in the 'YOUR_CUSTOM_CONFIG' variable below.
-         */
-        const YOUR_CUSTOM_CONFIG = null; 
-
-        // Attempt to get config from environment or fallback
-        let firebaseConfig = null;
-        try {
-            firebaseConfig = YOUR_CUSTOM_CONFIG || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
-        } catch (e) {
-            console.error("Firebase config parsing failed", e);
-        }
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'attendance-duel-v1';
-
-        // Firebase Imports via modules
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-
-        // Initialize Firebase only if config exists
-        let auth, db;
-        if (firebaseConfig) {
-            const firebaseApp = initializeApp(firebaseConfig);
-            auth = getAuth(firebaseApp);
-            db = getFirestore(firebaseApp);
-        }
 
         const DAYS_TOTAL = 30;
 
-        // SVGs
-        const IconCheck = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>;
-        const IconX = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
-        const IconTrophy = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>;
-        const IconCloud = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 19a5.5 5.5 0 0 0 0-11h-1.5a7 7 0 1 0-11 7h1.5"></path></svg>;
-        const IconLoader = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>;
-        const IconZap = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
-        const IconShare = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>;
-
         const FUN_PENALTIES = [
-            "Buy the other person a coffee ☕",
-            "Send a 1-minute voice note singing a song 🎤",
-            "Do 20 pushups on video 🤳",
-            "Post an embarrassing (but cute) throwback photo 📸",
-            "Address the other as 'Your Majesty' for an hour 👑",
-            "Treat the other to a snack at the canteen 🍿",
-            "Carry the other's bag for one period 🎒",
-            "Write a 5-sentence paragraph on why the other is better at attending college 📝"
+            "Buy a coffee for a friend ☕",
+            "Send a 1-minute voice note singing 🎤",
+            "Do 15 mins of focused study extra 📚",
+            "Post a cute sky picture on story ☁️",
+            "Treat yourself to a small snack later 🍿",
+            "Write down 3 things you're grateful for 📝",
+            "Drink 2 liters of water today 💧",
+            "Organize your desk for 10 minutes 🧹"
         ];
 
         const REWARDS = [
             "Scholar Badge Unlocked! 🎖️",
-            "Earned a 'Free Pass' for one homework help 📚",
-            "Consistency King/Queen status 👑",
-            "Treat yourself to an extra 30 mins of gaming/shows 🎮",
-            "Choice of music on the next commute 🎶"
+            "Early break choice! ☕",
+            "Extra episode of your show tonight 📺",
+            "Treat yourself to your fav drink 🥤",
+            "Consistency Queen status 👑"
         ];
 
+        // SVGs
+        const IconCheck = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>;
+        const IconX = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
+
         const App = () => {
-            const [user, setUser] = useState(null);
-            const [loading, setLoading] = useState(!!firebaseConfig);
-            const [sakshamData, setSakshamData] = useState(Array(DAYS_TOTAL).fill(null));
-            const [toshaniData, setToshaniData] = useState(Array(DAYS_TOTAL).fill(null));
-            const [activeTab, setActiveTab] = useState('comparison');
-            const [isSyncing, setIsSyncing] = useState(false);
-            const [copied, setCopied] = useState(false);
+            const [attendance, setAttendance] = useState(() => {
+                const saved = localStorage.getItem('toshani_attendance');
+                return saved ? JSON.parse(saved) : Array(DAYS_TOTAL).fill(null);
+            });
 
             useEffect(() => {
-                if (!firebaseConfig) {
-                    setLoading(false);
-                    return;
-                }
+                localStorage.setItem('toshani_attendance', JSON.stringify(attendance));
+            }, [attendance]);a
 
-                const initAuth = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    } catch (err) {
-                        console.error("Auth error:", err);
-                    }
-                };
-                initAuth();
-                const unsubscribe = onAuthStateChanged(auth, (u) => {
-                    setUser(u);
-                });
-                return () => unsubscribe();
-            }, []);
-
-            useEffect(() => {
-                if (!user || !db) return;
-                const duelDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'states', 'duelState');
-                const unsubscribe = onSnapshot(duelDocRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        if (data.saksham) setSakshamData(data.saksham);
-                        if (data.toshani) setToshaniData(data.toshani);
-                    }
-                    setLoading(false);
-                }, (error) => {
-                    console.error("Firestore error:", error);
-                    setLoading(false);
-                });
-                return () => unsubscribe();
-            }, [user]);
-
-            const updateCloud = async (newSaksham, newToshani) => {
-                if (!user || !db) return;
-                setIsSyncing(true);
-                try {
-                    const duelDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'states', 'duelState');
-                    await setDoc(duelDocRef, {
-                        saksham: newSaksham,
-                        toshani: newToshani,
-                        lastUpdated: new Date().toISOString(),
-                        updatedBy: user.uid
-                    });
-                } catch (err) {
-                    console.error("Sync error:", err);
-                } finally {
-                    setIsSyncing(false);
-                }
-            };
-
-            const handleShare = () => {
-                const url = window.location.href;
-                const textArea = document.createElement("textarea");
-                textArea.value = url;
-                document.body.appendChild(textArea);
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                } catch (err) {
-                    console.error('Copy failed', err);
-                }
-                document.body.removeChild(textArea);
-            };
-
-            const calculateScore = (data) => {
-                return data.reduce((acc, status) => {
+            const calculateScore = () => {
+                return attendance.reduce((acc, status) => {
                     if (status === true) return acc + 1;
                     if (status === false) return acc - 1;
                     return acc;
                 }, 0);
             };
 
-            const getProgress = (data) => {
-                const attended = data.filter(s => s === true).length;
-                return Math.round((attended / DAYS_TOTAL) * 100);
+            const toggleDay = (index, status) => {
+                const newData = [...attendance];
+                newData[index] = newData[index] === status ? null : status;
+                setAttendance(newData);
             };
 
-            const toggleDay = (player, index, status) => {
-                let newSaksham = [...sakshamData];
-                let newToshani = [...toshaniData];
-
-                if (player === 'saksham') {
-                    newSaksham[index] = newSaksham[index] === status ? null : status;
-                    setSakshamData(newSaksham);
-                } else {
-                    newToshani[index] = newToshani[index] === status ? null : status;
-                    setToshaniData(newToshani);
-                }
-                updateCloud(newSaksham, newToshani);
-            };
-
-            const resetAll = async () => {
-                if (window.confirm("Reset BOTH Saksham and Toshani?")) {
-                    const empty = Array(DAYS_TOTAL).fill(null);
-                    setSakshamData(empty);
-                    setToshaniData(empty);
-                    await updateCloud(empty, empty);
+            const resetAll = () => {
+                if (confirm("Reset your 30-day progress?")) {
+                    setAttendance(Array(DAYS_TOTAL).fill(null));
                 }
             };
 
-            const PlayerCard = ({ name, data, color, iconColor }) => {
-                const score = calculateScore(data);
-                const progress = getProgress(data);
-                const lastAction = data.filter(x => x !== null).length > 0 ? data.findLastIndex(x => x !== null) : -1;
-                const isPenalty = lastAction !== -1 && data[lastAction] === false;
-                const isReward = lastAction !== -1 && data[lastAction] === true;
+            const lastActionIdx = attendance.filter(x => x !== null).length > 0 ? attendance.findLastIndex(x => x !== null) : -1;
+            const isPenalty = lastActionIdx !== -1 && attendance[lastActionIdx] === false;
+            const isReward = lastActionIdx !== -1 && attendance[lastActionIdx] === true;
+            const score = calculateScore();
+            const progress = Math.round((attendance.filter(s => s === true).length / DAYS_TOTAL) * 100);
 
-                return (
-                    <div className={`p-6 rounded-3xl shadow-xl ${color} border-2 border-white/20 backdrop-blur-sm transition-all`}>
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-3xl font-bold text-gray-800">{name}</h2>
-                            <div className="text-right">
-                                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Total Score</p>
-                                <p className={`text-4xl font-black ${score >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {score > 0 ? `+${score}` : score}
-                                </p>
-                            </div>
+            return (
+                <div className="max-w-md mx-auto p-6 md:py-12">
+                    <header className="mb-8 text-center">
+                        <h1 className="text-4xl font-bold text-[#6b4e3d] mb-1">Toshani's Tracker</h1>
+                        <p className="text-[#a68a7b] text-sm font-medium">30 Days of Consistency</p>
+                    </header>
+
+                    {/* Stats Card */}
+                    <section className="glass-card p-6 custom-shadow mb-6 flex justify-between items-center">
+                        <div>
+                            <p className="text-[10px] uppercase font-bold text-[#a68a7b] tracking-widest">Consistency Score</p>
+                            <p className={`text-4xl font-black ${score >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                {score > 0 ? `+${score}` : score}
+                            </p>
                         </div>
-
-                        <div className="mb-6">
-                            <div className="flex justify-between text-xs mb-1 font-bold text-gray-500">
-                                <span>Progress</span>
-                                <span>{progress}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                                <div className={`h-full transition-all duration-700 ${iconColor}`} style={{ width: `${progress}%` }}></div>
-                            </div>
+                        <div className="text-right">
+                            <p className="text-[10px] uppercase font-bold text-[#a68a7b] tracking-widest">Goal Progress</p>
+                            <p className="text-2xl font-bold text-[#6b4e3d]">{progress}%</p>
                         </div>
+                    </section>
 
-                        <div className="mb-8 min-h-[90px] flex items-center">
-                            {isPenalty && (
-                                <div className="w-full p-4 bg-red-100 border-l-4 border-red-500 rounded-lg animate-bounce-short">
-                                    <p className="text-red-700 font-bold text-xs uppercase mb-1 text-[10px]">Penalty Unlocked!</p>
-                                    <p className="text-red-600 italic text-sm">"{FUN_PENALTIES[lastAction % FUN_PENALTIES.length]}"</p>
-                                </div>
-                            )}
-                            {isReward && (
-                                <div className="w-full p-4 bg-green-100 border-l-4 border-green-500 rounded-lg">
-                                    <p className="text-green-700 font-bold text-xs uppercase mb-1 text-[10px]">Reward Unlocked!</p>
-                                    <p className="text-green-600 italic text-sm">{REWARDS[lastAction % REWARDS.length]}</p>
-                                </div>
-                            )}
-                            {!isPenalty && !isReward && (
-                                <div className="w-full p-4 bg-gray-100 border-dashed border-2 border-gray-300 rounded-lg text-center text-gray-400 text-xs">
-                                    Attendance update reveals tasks
-                                </div>
-                            )}
-                        </div>
+                    {/* Task Box */}
+                    <section className="mb-6 min-h-[100px] flex items-center">
+                        {isPenalty && (
+                            <div className="w-full p-5 bg-red-100/50 border-l-4 border-red-400 rounded-2xl animate-bounce-short">
+                                <p className="text-red-700 font-bold text-xs uppercase mb-1">Today's Tiny Penalty</p>
+                                <p className="text-red-600 italic text-sm">"{FUN_PENALTIES[lastActionIdx % FUN_PENALTIES.length]}"</p>
+                            </div>
+                        )}
+                        {isReward && (
+                            <div className="w-full p-5 bg-green-100/50 border-l-4 border-green-400 rounded-2xl">
+                                <p className="text-green-700 font-bold text-xs uppercase mb-1">Consistency Reward</p>
+                                <p className="text-green-600 italic text-sm">{REWARDS[lastActionIdx % REWARDS.length]}</p>
+                            </div>
+                        )}
+                        {!isPenalty && !isReward && (
+                            <div className="w-full p-5 border-dashed border-2 border-[#d4a373]/30 rounded-2xl text-center text-[#a68a7b] text-sm">
+                                Update today's status to see your daily task!
+                            </div>
+                        )}
+                    </section>
 
-                        <div className="grid grid-cols-5 gap-2">
-                            {data.map((status, i) => (
+                    {/* Attendance Grid */}
+                    <section className="glass-card p-6 custom-shadow mb-8">
+                        <div className="grid grid-cols-5 gap-3">
+                            {attendance.map((status, i) => (
                                 <div key={i} className="flex flex-col gap-1">
-                                    <div className="text-[8px] text-center text-gray-400 font-bold">D{i + 1}</div>
-                                    <button
-                                        onClick={() => toggleDay(name.toLowerCase(), i, true)}
-                                        className={`p-2 rounded-lg flex justify-center transition-transform active:scale-90 ${status === true ? 'bg-green-500 text-white shadow-md shadow-green-200' : 'bg-white text-gray-300'}`}
+                                    <span className="text-[9px] text-center font-bold text-[#a68a7b]">D{i+1}</span>
+                                    <button 
+                                        onClick={() => toggleDay(i, true)}
+                                        className={`p-2 rounded-xl flex justify-center transition-all ${status === true ? 'bg-green-500 text-white shadow-lg' : 'bg-white/50 text-gray-300 hover:bg-green-50'}`}
                                     >
                                         <IconCheck />
                                     </button>
-                                    <button
-                                        onClick={() => toggleDay(name.toLowerCase(), i, false)}
-                                        className={`p-2 rounded-lg flex justify-center transition-transform active:scale-90 ${status === false ? 'bg-red-500 text-white shadow-md shadow-red-200' : 'bg-white text-gray-300'}`}
+                                    <button 
+                                        onClick={() => toggleDay(i, false)}
+                                        className={`p-2 rounded-xl flex justify-center transition-all ${status === false ? 'bg-red-500 text-white shadow-lg' : 'bg-white/50 text-gray-300 hover:bg-red-50'}`}
                                     >
                                         <IconX />
                                     </button>
                                 </div>
                             ))}
                         </div>
-                    </div>
-                );
-            };
+                    </section>
 
-            if (loading) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center">
-                        <div className="text-center">
-                            <IconLoader className="animate-spin-custom text-indigo-600 mx-auto mb-4 w-10 h-10" />
-                            <p className="text-gray-500 font-bold">Connecting Duel...</p>
+                    <footer className="text-center space-y-4">
+                        <div className="text-[10px] text-[#a68a7b] uppercase font-bold tracking-widest leading-relaxed">
+                            +1 for Attending • -1 for Missing<br/>
+                            Stay consistent, Toshani!
                         </div>
-                    </div>
-                );
-            }
-
-            const sakshamScore = calculateScore(sakshamData);
-            const toshaniScore = calculateScore(toshaniData);
-            const leader = sakshamScore > toshaniScore ? "Saksham" : toshaniScore > sakshamScore ? "Toshani" : "Tie";
-
-            return (
-                <div className="min-h-screen p-4 font-sans text-gray-900 pb-12">
-                    <div className="max-w-5xl mx-auto">
-                        {!firebaseConfig && (
-                            <div className="mb-4 bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-800 text-center">
-                                <strong>Portable Mode:</strong> Live Sync is disabled. Open this in the original preview or add your own Firebase config to the code to sync across devices.
-                            </div>
-                        )}
-                        <header className="text-center mb-8 relative">
-                            <div className="flex justify-center items-center gap-2 mb-2">
-                                {isSyncing ? <IconLoader className="animate-spin-custom text-indigo-400" /> : <IconCloud className={firebaseConfig ? "text-green-400" : "text-gray-300"} />}
-                                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                                    {!firebaseConfig ? 'Local Storage Only' : isSyncing ? 'Updating Cloud...' : 'Cloud Connection Live'}
-                                </span>
-                            </div>
-                            <h1 className="text-3xl md:text-5xl font-black mb-1">Attendance Duel</h1>
-                            <p className="text-gray-400 text-sm">Saksham vs Toshani: 30 Day Battle</p>
-                            
-                            <div className="mt-6 flex flex-wrap justify-center gap-3">
-                                <div className="bg-white p-3 px-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                                    <IconTrophy />
-                                    <div className="text-left">
-                                        <p className="text-[10px] text-gray-400 uppercase font-bold">Leading</p>
-                                        <p className="text-lg font-bold">{leader}</p>
-                                    </div>
-                                </div>
-
-                                <button 
-                                    onClick={handleShare}
-                                    className={`flex items-center gap-2 p-3 px-6 rounded-2xl border font-bold text-sm transition-all active:scale-95 ${copied ? 'bg-green-500 border-green-500 text-white' : 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200'}`}
-                                >
-                                    <IconShare />
-                                    {copied ? 'Link Copied!' : 'Share Link'}
-                                </button>
-
-                                <button onClick={resetAll} className="p-3 bg-white rounded-2xl border border-gray-100 text-gray-300 hover:text-red-500 transition-colors">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                                </button>
-                            </div>
-                        </header>
-
-                        <div className="flex md:hidden bg-gray-200 p-1 rounded-xl mb-6 shadow-inner">
-                            {['saksham', 'comparison', 'toshani'].map(tab => (
-                                <button key={tab} className={`flex-1 py-2 rounded-lg text-xs font-bold capitalize transition-all ${activeTab === tab ? 'bg-white shadow text-indigo-600' : 'text-gray-500'}`} onClick={() => setActiveTab(tab)}>
-                                    {tab === 'comparison' ? 'VS Mode' : tab}
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="grid md:grid-cols-2 gap-6 lg:gap-10">
-                            {(activeTab === 'saksham' || activeTab === 'comparison') && (
-                                <PlayerCard name="Saksham" data={sakshamData} color="bg-blue-50/80" iconColor="bg-blue-600" />
-                            )}
-                            {(activeTab === 'toshani' || activeTab === 'comparison') && (
-                                <PlayerCard name="Toshani" data={toshaniData} color="bg-pink-50/80" iconColor="bg-pink-600" />
-                            )}
-                        </div>
-
-                        <div className="mt-12 bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-sm">
-                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-600 uppercase tracking-wide">
-                                <IconZap /> The Agreement
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-medium text-gray-500">
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <p className="text-indigo-600 font-bold mb-1">Score +1 / -1</p>
-                                    Consistency is key. Attending adds weight; skipping hurts the score.
-                                </div>
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <p className="text-indigo-600 font-bold mb-1">The Penalties</p>
-                                    Missed a class? Check your task. No excuses—the duel is live!
-                                </div>
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <p className="text-indigo-600 font-bold mb-1">Invite Friend</p>
-                                    Send the link. Both opens will update in real-time (requires setup).
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                        <button 
+                            onClick={resetAll}
+                            className="text-[10px] text-gray-400 hover:text-red-400 font-bold uppercase underline underline-offset-4"
+                        >
+                            Reset My 30 Days
+                        </button>
+                    </footer>
                 </div>
             );
         };
