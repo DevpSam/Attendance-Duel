@@ -33,22 +33,40 @@
 <body>
     <div id="root"></div>
 
-    <!-- Added data-type="module" to handle ESM imports correctly in Babel standalone -->
     <script type="text/babel" data-type="module">
         const { useState, useEffect } = React;
+
+        /**
+         * GITHUB PAGES SETUP:
+         * To make this work on your own website with Live Sync:
+         * 1. Go to console.firebase.google.com
+         * 2. Create a project and get your "Web Config" object.
+         * 3. Paste it in the 'YOUR_CUSTOM_CONFIG' variable below.
+         */
+        const YOUR_CUSTOM_CONFIG = null; 
+
+        // Attempt to get config from environment or fallback
+        let firebaseConfig = null;
+        try {
+            firebaseConfig = YOUR_CUSTOM_CONFIG || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
+        } catch (e) {
+            console.error("Firebase config parsing failed", e);
+        }
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'attendance-duel-v1';
 
         // Firebase Imports via modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-        // Global environment variables
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'attendance-duel-v1';
-
-        const firebaseApp = initializeApp(firebaseConfig);
-        const auth = getAuth(firebaseApp);
-        const db = getFirestore(firebaseApp);
+        // Initialize Firebase only if config exists
+        let auth, db;
+        if (firebaseConfig) {
+            const firebaseApp = initializeApp(firebaseConfig);
+            auth = getAuth(firebaseApp);
+            db = getFirestore(firebaseApp);
+        }
 
         const DAYS_TOTAL = 30;
 
@@ -82,16 +100,19 @@
 
         const App = () => {
             const [user, setUser] = useState(null);
-            const [loading, setLoading] = useState(true);
+            const [loading, setLoading] = useState(!!firebaseConfig);
             const [sakshamData, setSakshamData] = useState(Array(DAYS_TOTAL).fill(null));
             const [toshaniData, setToshaniData] = useState(Array(DAYS_TOTAL).fill(null));
             const [activeTab, setActiveTab] = useState('comparison');
             const [isSyncing, setIsSyncing] = useState(false);
             const [copied, setCopied] = useState(false);
 
-            const duelDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'states', 'duelState');
-
             useEffect(() => {
+                if (!firebaseConfig) {
+                    setLoading(false);
+                    return;
+                }
+
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -111,7 +132,8 @@
             }, []);
 
             useEffect(() => {
-                if (!user) return;
+                if (!user || !db) return;
+                const duelDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'states', 'duelState');
                 const unsubscribe = onSnapshot(duelDocRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
@@ -120,16 +142,17 @@
                     }
                     setLoading(false);
                 }, (error) => {
-                    console.error("Firestore read error:", error);
+                    console.error("Firestore error:", error);
                     setLoading(false);
                 });
                 return () => unsubscribe();
             }, [user]);
 
             const updateCloud = async (newSaksham, newToshani) => {
-                if (!user) return;
+                if (!user || !db) return;
                 setIsSyncing(true);
                 try {
+                    const duelDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'states', 'duelState');
                     await setDoc(duelDocRef, {
                         saksham: newSaksham,
                         toshani: newToshani,
@@ -272,7 +295,7 @@
                     <div className="min-h-screen flex items-center justify-center">
                         <div className="text-center">
                             <IconLoader className="animate-spin-custom text-indigo-600 mx-auto mb-4 w-10 h-10" />
-                            <p className="text-gray-500 font-bold">Syncing Duel State...</p>
+                            <p className="text-gray-500 font-bold">Connecting Duel...</p>
                         </div>
                     </div>
                 );
@@ -285,11 +308,16 @@
             return (
                 <div className="min-h-screen p-4 font-sans text-gray-900 pb-12">
                     <div className="max-w-5xl mx-auto">
+                        {!firebaseConfig && (
+                            <div className="mb-4 bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-800 text-center">
+                                <strong>Portable Mode:</strong> Live Sync is disabled. Open this in the original preview or add your own Firebase config to the code to sync across devices.
+                            </div>
+                        )}
                         <header className="text-center mb-8 relative">
                             <div className="flex justify-center items-center gap-2 mb-2">
-                                {isSyncing ? <IconLoader className="animate-spin-custom text-indigo-400" /> : <IconCloud className="text-green-400" />}
+                                {isSyncing ? <IconLoader className="animate-spin-custom text-indigo-400" /> : <IconCloud className={firebaseConfig ? "text-green-400" : "text-gray-300"} />}
                                 <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                                    {isSyncing ? 'Updating Cloud...' : 'Cloud Connection Live'}
+                                    {!firebaseConfig ? 'Local Storage Only' : isSyncing ? 'Updating Cloud...' : 'Cloud Connection Live'}
                                 </span>
                             </div>
                             <h1 className="text-3xl md:text-5xl font-black mb-1">Attendance Duel</h1>
@@ -350,7 +378,7 @@
                                 </div>
                                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                     <p className="text-indigo-600 font-bold mb-1">Invite Friend</p>
-                                    Send the link. No accounts needed. Just open and start clicking.
+                                    Send the link. Both opens will update in real-time (requires setup).
                                 </div>
                             </div>
                         </div>
